@@ -8,6 +8,10 @@ COPY ./package.json ./yarn.lock ./
 
 # ---
 FROM deps-common AS deps-dev
+RUN apk fix
+RUN apk --update add git less openssh && \
+    rm -rf /var/lib/apt/lists/* && \
+    rm /var/cache/apk/*
 RUN yarn remove rich-markdown-editor && \
   yarn add 'rich-markdown-editor@https://github.com/outline/rich-markdown-editor'
 RUN yarn install --no-optional --frozen-lockfile && \
