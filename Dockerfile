@@ -4,13 +4,7 @@ FROM node:14-alpine AS deps-common
 
 ARG APP_PATH
 WORKDIR $APP_PATH
-RUN apk fix
-RUN apk --update add git less openssh && \
-    rm -rf /var/lib/apt/lists/* && \
-    rm /var/cache/apk/*
 COPY ./package.json ./yarn.lock ./
-RUN yarn remove rich-markdown-editor && \
-  yarn add 'rich-markdown-editor@https://github.com/outline/rich-markdown-editor'
 
 # ---
 FROM deps-common AS deps-dev
