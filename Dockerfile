@@ -8,6 +8,8 @@ COPY ./package.json ./yarn.lock ./
 
 # ---
 FROM deps-common AS deps-dev
+RUN yarn remove rich-markdown-editor && \
+  yarn add 'rich-markdown-editor@https://github.com/outline/rich-markdown-editor'
 RUN yarn install --no-optional --frozen-lockfile && \
   yarn cache clean
 
