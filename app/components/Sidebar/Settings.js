@@ -96,15 +96,13 @@ function SettingsSidebar() {
                 label={t("Security")}
               />
             )}
-            {can.update &&
-              env.COLLABORATION_URL &&
-              env.DEPLOYMENT !== "hosted" && (
-                <SidebarLink
-                  to="/settings/features"
-                  icon={<BeakerIcon color="currentColor" />}
-                  label={t("Features")}
-                />
-              )}
+            {can.update && env.DEPLOYMENT !== "hosted" && (
+              <SidebarLink
+                to="/settings/features"
+                icon={<BeakerIcon color="currentColor" />}
+                label={t("Features")}
+              />
+            )}
             <SidebarLink
               to="/settings/members"
               icon={<UserIcon color="currentColor" />}
@@ -130,14 +128,16 @@ function SettingsSidebar() {
               />
             )}
           </Section>
-          {can.update && (
+          {can.update && (env.SLACK_KEY || isHosted) && (
             <Section>
               <Header>{t("Integrations")}</Header>
-              <SidebarLink
-                to="/settings/integrations/slack"
-                icon={<SlackIcon color="currentColor" />}
-                label="Slack"
-              />
+              {env.SLACK_KEY && (
+                <SidebarLink
+                  to="/settings/integrations/slack"
+                  icon={<SlackIcon color="currentColor" />}
+                  label="Slack"
+                />
+              )}
               {isHosted && (
                 <SidebarLink
                   to="/settings/integrations/zapier"
