@@ -12,11 +12,11 @@ on:
       upstream-branch:
         description: 'Upstream branch to merge from. Eg. master'
         required: true
-        default: 'master'           # the upstream branch to merge from
+        default: 'main'           # the upstream branch to merge from
       branch:
         description: 'Branch to merge to'
         required: true
-        default: 'upstream'         # the branch to merge to
+        default: 'main'         # the branch to merge to
 
 
 jobs:
@@ -32,5 +32,5 @@ jobs:
         uses: exions/merge-upstream@v1
         with:
           upstream: outline/outline      # the upstream repo
-          upstream-branch: master   # the upstream branch to merge from
-          branch: upstream          # the branch to merge to
+          upstream-branch: main   # the upstream branch to merge from
+          branch: main          # the branch to merge to
