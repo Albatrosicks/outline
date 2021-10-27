@@ -2,7 +2,7 @@
 import { HocuspocusProvider, WebSocketStatus } from "@hocuspocus/provider";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { useHistory } from "react-router";
+import { useHistory } from "react-router-dom";
 import { IndexeddbPersistence } from "y-indexeddb";
 import * as Y from "yjs";
 import Editor, { type Props as EditorProps } from "components/Editor";
@@ -14,7 +14,7 @@ import usePageVisibility from "hooks/usePageVisibility";
 import useStores from "hooks/useStores";
 import useToasts from "hooks/useToasts";
 import MultiplayerExtension from "multiplayer/MultiplayerExtension";
-import { homeUrl } from "utils/routeHelpers";
+import { homePath } from "utils/routeHelpers";
 
 type Props = {|
   ...EditorProps,
@@ -61,7 +61,7 @@ function MultiplayerEditor({ ...props }: Props, ref: any) {
         )
       );
 
-      history.replace(homeUrl());
+      history.replace(homePath());
     });
 
     provider.on("awarenessChange", ({ states }) => {

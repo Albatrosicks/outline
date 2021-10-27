@@ -45,7 +45,7 @@ import {
   documentHistoryUrl,
   documentUrl,
   editDocumentUrl,
-  newDocumentUrl,
+  newDocumentPath,
 } from "utils/routeHelpers";
 
 type Props = {|
@@ -330,7 +330,7 @@ function DocumentMenu({
             },
             {
               title: t("New nested document"),
-              to: newDocumentUrl(document.collectionId, {
+              to: newDocumentPath(document.collectionId, {
                 parentDocumentId: document.id,
               }),
               visible: !!can.createChildDocument,
@@ -479,7 +479,7 @@ function DocumentMenu({
               isOpen={showTemplateModal}
             >
               <DocumentTemplatize
-                document={document}
+                documentId={document.id}
                 onSubmit={() => setShowTemplateModal(false)}
               />
             </Modal>
