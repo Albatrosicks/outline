@@ -16,7 +16,7 @@ on:
       branch:
         description: 'Branch to merge to'
         required: true
-        default: 'main'         # the branch to merge to
+        default: 'upstream'         # the branch to merge to
 
 
 jobs:
@@ -33,4 +33,4 @@ jobs:
         with:
           upstream: outline/outline      # the upstream repo
           upstream-branch: main   # the upstream branch to merge from
-          branch: main          # the branch to merge to
+          branch: upstream          # the branch to merge to
