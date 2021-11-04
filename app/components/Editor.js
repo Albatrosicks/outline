@@ -227,7 +227,8 @@ const StyledEditor = styled(RichMarkdownEditor)`
     visibility: hidden;
   }
 
-  .heading-name:first-child {
+  .heading-name:first-child,
+  .heading-name:first-child + .ProseMirror-yjs-cursor {
     & + h1,
     & + h2,
     & + h3,
@@ -251,6 +252,10 @@ const StyledEditor = styled(RichMarkdownEditor)`
   }
 
   .ProseMirror {
+    & > .ProseMirror-yjs-cursor {
+      display: none;
+    }
+
     .ProseMirror-yjs-cursor {
       position: relative;
       margin-left: -1px;
@@ -259,6 +264,7 @@ const StyledEditor = styled(RichMarkdownEditor)`
       border-right: 1px solid black;
       height: 1em;
       word-break: normal;
+
       &:after {
         content: "";
         display: block;
@@ -285,6 +291,7 @@ const StyledEditor = styled(RichMarkdownEditor)`
         pointer-events: none;
         left: -1px;
       }
+
       &:hover {
         > div {
           opacity: 1;
