@@ -203,11 +203,12 @@ class DocumentScene extends React.Component<Props> {
 
   goToHistory = (ev) => {
     if (!this.props.readOnly) return;
+    if (ev.ctrlKey) return;
 
     ev.preventDefault();
-    const { document, revision } = this.props;
+    const { document, location } = this.props;
 
-    if (revision) {
+    if (location.pathname.endsWith("history")) {
       this.props.history.push(document.url);
     } else {
       this.props.history.push(documentHistoryUrl(document));
@@ -356,8 +357,8 @@ class DocumentScene extends React.Component<Props> {
     }
   };
 
-  onChangeTitle = (event) => {
-    this.title = event.target.value;
+  onChangeTitle = (value) => {
+    this.title = value;
     this.updateIsDirtyDebounced();
     this.autosave();
   };
@@ -388,7 +389,8 @@ class DocumentScene extends React.Component<Props> {
     const headings = this.editor.current
       ? this.editor.current.getHeadings()
       : [];
-    const showContents = ui.tocVisible && readOnly;
+    const showContents =
+      ui.tocVisible && (readOnly || team?.collaborativeEditing);
 
     const collaborativeEditing =
       team?.collaborativeEditing &&
@@ -472,7 +474,7 @@ class DocumentScene extends React.Component<Props> {
               shareId={shareId}
               isRevision={!!revision}
               isDraft={document.isDraft}
-              isEditing={!readOnly}
+              isEditing={!readOnly && !team?.collaborativeEditing}
               isSaving={this.isSaving}
               isPublishing={this.isPublishing}
               publishingIsDisabled={
