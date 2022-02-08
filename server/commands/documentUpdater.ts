@@ -1,8 +1,9 @@
+import invariant from "invariant";
 import { uniq } from "lodash";
 import { Node } from "prosemirror-model";
-import { schema, serializer } from "rich-markdown-editor";
 import { yDocToProsemirrorJSON } from "y-prosemirror";
 import * as Y from "yjs";
+import { schema, serializer } from "@server/editor";
 import { Document, Event } from "@server/models";
 
 export default async function documentUpdater({
@@ -15,6 +16,8 @@ export default async function documentUpdater({
   userId?: string;
 }) {
   const document = await Document.findByPk(documentId);
+  invariant(document, "document not found");
+
   const state = Y.encodeStateAsUpdate(ydoc);
   const node = Node.fromJSON(schema, yDocToProsemirrorJSON(ydoc, "default"));
   const text = serializer.serialize(node, undefined);
@@ -30,6 +33,7 @@ export default async function documentUpdater({
   const pudIds = Array.from(pud.clients.values());
   const existingIds = document.collaboratorIds;
   const collaboratorIds = uniq([...pudIds, ...existingIds]);
+
   await Document.scope("withUnpublished").update(
     {
       text,

@@ -5,7 +5,6 @@ import styled from "styled-components";
 import breakpoint from "styled-components-breakpoint";
 import { MAX_TITLE_LENGTH } from "@shared/constants";
 import { light } from "@shared/theme";
-import parseTitle from "@shared/utils/parseTitle";
 import Document from "~/models/Document";
 import ContentEditable from "~/components/ContentEditable";
 import Star, { AnimatedStar } from "~/components/Star";
@@ -27,6 +26,9 @@ type Props = {
   onSave?: (options: { publish?: boolean; done?: boolean }) => void;
 };
 
+const lineHeight = "1.25";
+const fontSize = "2.25em";
+
 const EditableTitle = React.forwardRef(
   (
     {
@@ -43,10 +45,12 @@ const EditableTitle = React.forwardRef(
     const { policies } = useStores();
     const { t } = useTranslation();
     const can = policies.abilities(document.id);
-    const { emoji } = parseTitle(value);
-    const startsWithEmojiAndSpace = !!(emoji && value.startsWith(`${emoji} `));
     const normalizedTitle =
       !value && readOnly ? document.titleWithDefault : value;
+
+    const handleClick = React.useCallback(() => {
+      ref.current?.focus();
+    }, [ref]);
 
     const handleKeyDown = React.useCallback(
       (event: React.KeyboardEvent) => {
@@ -88,8 +92,31 @@ const EditableTitle = React.forwardRef(
       [onGoToNextInput, onSave]
     );
 
+    /**
+     * Measures the width of the document's emoji in the title
+     */
+    const emojiWidth = React.useMemo(() => {
+      const element = window.document.createElement("span");
+      if (!document.emoji) {
+        return 0;
+      }
+
+      element.innerText = `${document.emoji}\u00A0`;
+      element.style.visibility = "hidden";
+      element.style.position = "absolute";
+      element.style.left = "-9999px";
+      element.style.lineHeight = lineHeight;
+      element.style.fontSize = fontSize;
+      element.style.width = "max-content";
+      window.document.body?.appendChild(element);
+      const width = window.getComputedStyle(element).width;
+      window.document.body?.removeChild(element);
+      return parseInt(width, 10);
+    }, [document.emoji]);
+
     return (
       <Title
+        onClick={handleClick}
         onChange={onChange}
         onKeyDown={handleKeyDown}
         placeholder={
@@ -98,7 +125,7 @@ const EditableTitle = React.forwardRef(
             : t("Start with a title…")
         }
         value={normalizedTitle}
-        $startsWithEmojiAndSpace={startsWithEmojiAndSpace}
+        $emojiWidth={emojiWidth}
         $isStarred={document.isStarred}
         autoFocus={!value}
         maxLength={MAX_TITLE_LENGTH}
@@ -117,28 +144,36 @@ const EditableTitle = React.forwardRef(
 const StarButton = styled(Star)`
   position: relative;
   top: 4px;
-  left: 4px;
+  left: 10px;
+  overflow: hidden;
+  width: 24px;
+
+  svg {
+    position: relative;
+    left: -4px;
+  }
 `;
 
 type TitleProps = {
-  $startsWithEmojiAndSpace: boolean;
   $isStarred: boolean;
+  $emojiWidth: number;
 };
 
 const Title = styled(ContentEditable)<TitleProps>`
-  line-height: 1.25;
+  line-height: ${lineHeight};
   margin-top: 1em;
   margin-bottom: 0.5em;
   background: ${(props) => props.theme.background};
   transition: ${(props) => props.theme.backgroundTransition};
   color: ${(props) => props.theme.text};
   -webkit-text-fill-color: ${(props) => props.theme.text};
-  font-size: 2.25em;
+  font-size: ${fontSize};
   font-weight: 500;
   outline: none;
   border: 0;
   padding: 0;
   resize: none;
+  cursor: text;
 
   > span {
     outline: none;
@@ -150,8 +185,7 @@ const Title = styled(ContentEditable)<TitleProps>`
   }
 
   ${breakpoint("tablet")`
-    margin-left: ${(props: TitleProps) =>
-      props.$startsWithEmojiAndSpace ? "-1.2em" : 0};
+    margin-left: ${(props: TitleProps) => -props.$emojiWidth}px;
   `};
 
   ${AnimatedStar} {

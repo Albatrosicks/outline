@@ -3,7 +3,6 @@ import { User } from "./models";
 
 export type ContextWithState = Context & {
   state: {
-    // @ts-expect-error ts-migrate(2749) FIXME: 'User' refers to a value, but is being used as a t... Remove this comment to see the full error message
     user: User;
     token: string;
     authType: "app" | "api";
@@ -131,9 +130,13 @@ export type CollectionExportAllEvent = {
 };
 
 export type FileOperationEvent = {
-  name: "fileOperations.update" | "fileOperation.delete";
+  name:
+    | "fileOperations.create"
+    | "fileOperations.update"
+    | "fileOperation.delete";
   teamId: string;
   actorId: string;
+  modelId: string;
   data: {
     type: string;
     state: string;
@@ -242,7 +245,18 @@ export type PinEvent = {
   name: "pins.create" | "pins.update" | "pins.delete";
   teamId: string;
   modelId: string;
+  documentId: string;
   collectionId?: string;
+  actorId: string;
+  ip: string;
+};
+
+export type StarEvent = {
+  name: "stars.create" | "stars.update" | "stars.delete";
+  teamId: string;
+  modelId: string;
+  documentId: string;
+  userId: string;
   actorId: string;
   ip: string;
 };
@@ -251,6 +265,7 @@ export type Event =
   | UserEvent
   | DocumentEvent
   | PinEvent
+  | StarEvent
   | CollectionEvent
   | CollectionImportEvent
   | CollectionExportAllEvent

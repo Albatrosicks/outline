@@ -1,16 +1,25 @@
+import invariant from "invariant";
 import Logger from "@server/logging/logger";
 import { Team, AuthenticationProvider } from "@server/models";
-import { getAllowedDomains } from "@server/utils/authentication";
+import { isDomainAllowed } from "@server/utils/authentication";
 import { generateAvatarUrl } from "@server/utils/avatars";
 import { MaximumTeamsError } from "../errors";
-import { sequelize } from "../sequelize";
 
 type TeamCreatorResult = {
-  // @ts-expect-error ts-migrate(2749) FIXME: 'Team' refers to a value, but is being used as a t... Remove this comment to see the full error message
   team: Team;
-  // @ts-expect-error ts-migrate(2749) FIXME: 'AuthenticationProvider' refers to a value, but is... Remove this comment to see the full error message
   authenticationProvider: AuthenticationProvider;
   isNewTeam: boolean;
+};
+
+type Props = {
+  name: string;
+  domain?: string;
+  subdomain: string;
+  avatarUrl?: string | null;
+  authenticationProvider: {
+    name: string;
+    providerId: string;
+  };
 };
 
 export default async function teamCreator({
@@ -19,16 +28,7 @@ export default async function teamCreator({
   subdomain,
   avatarUrl,
   authenticationProvider,
-}: {
-  name: string;
-  domain?: string;
-  subdomain: string;
-  avatarUrl?: string;
-  authenticationProvider: {
-    name: string;
-    providerId: string;
-  };
-}): Promise<TeamCreatorResult> {
+}: Props): Promise<TeamCreatorResult> {
   let authP = await AuthenticationProvider.findOne({
     where: authenticationProvider,
     include: [
@@ -57,11 +57,16 @@ export default async function teamCreator({
     const teamCount = await Team.count();
 
     // If the self-hosted installation has a single team and the domain for the
-    // new team matches one in the allowed domains env variable then assign the
-    // authentication provider to the existing team
-    if (teamCount === 1 && domain && getAllowedDomains().includes(domain)) {
+    // new team is allowed then assign the authentication provider to the
+    // existing team
+    if (teamCount === 1 && domain && isDomainAllowed(domain)) {
       const team = await Team.findOne();
-      authP = await team.createAuthenticationProvider(authenticationProvider);
+      invariant(team, "Team should exist");
+
+      authP = await team.$create<AuthenticationProvider>(
+        "authenticationProvider",
+        authenticationProvider
+      );
       return {
         authenticationProvider: authP,
         team,
@@ -84,7 +89,7 @@ export default async function teamCreator({
     });
   }
 
-  const transaction = await sequelize.transaction();
+  const transaction = await Team.sequelize!.transaction();
   let team;
 
   try {

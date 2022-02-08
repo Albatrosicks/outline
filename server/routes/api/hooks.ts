@@ -1,3 +1,4 @@
+import invariant from "invariant";
 import Router from "koa-router";
 import { escapeRegExp } from "lodash";
 import { AuthenticationError, InvalidRequestError } from "@server/errors";
@@ -20,7 +21,9 @@ const router = new Router();
 // triggered by a user posting a getoutline.com link in Slack
 router.post("hooks.unfurl", async (ctx) => {
   const { challenge, token, event } = ctx.body;
-  if (challenge) return (ctx.body = ctx.body.challenge);
+  if (challenge) {
+    return (ctx.body = ctx.body.challenge);
+  }
 
   if (token !== process.env.SLACK_VERIFICATION_TOKEN) {
     throw AuthenticationError("Invalid token");
@@ -38,21 +41,27 @@ router.post("hooks.unfurl", async (ctx) => {
       },
     ],
   });
-  if (!user) return;
+  if (!user) {
+    return;
+  }
   const auth = await IntegrationAuthentication.findOne({
     where: {
       service: "slack",
       teamId: user.teamId,
     },
   });
-  if (!auth) return;
+  if (!auth) {
+    return;
+  }
   // get content for unfurled links
   const unfurls = {};
 
   for (const link of event.links) {
     const id = link.url.substr(link.url.lastIndexOf("/") + 1);
     const doc = await Document.findByPk(id);
-    if (!doc || doc.teamId !== user.teamId) continue;
+    if (!doc || doc.teamId !== user.teamId) {
+      continue;
+    }
     unfurls[link.url] = {
       title: doc.title,
       text: doc.getSummary(),
@@ -93,6 +102,8 @@ router.post("hooks.interactive", async (ctx) => {
   }
 
   const team = await Team.findByPk(document.teamId);
+  invariant(team, "team not found");
+
   // respond with a public message that will be posted in the original channel
   ctx.body = {
     response_type: "in_channel",

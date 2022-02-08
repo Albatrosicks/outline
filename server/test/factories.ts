@@ -5,6 +5,7 @@ import {
   User,
   Event,
   Document,
+  Star,
   Collection,
   Group,
   GroupUser,
@@ -17,7 +18,7 @@ import {
 
 let count = 1;
 
-export async function buildShare(overrides: Record<string, any> = {}) {
+export async function buildShare(overrides: Partial<Share> = {}) {
   if (!overrides.teamId) {
     const team = await buildTeam();
     overrides.teamId = team.id;
@@ -44,6 +45,30 @@ export async function buildShare(overrides: Record<string, any> = {}) {
   });
 }
 
+export async function buildStar(overrides: Partial<Star> = {}) {
+  let user;
+
+  if (overrides.userId) {
+    user = await User.findByPk(overrides.userId);
+  } else {
+    user = await buildUser();
+    overrides.userId = user.id;
+  }
+
+  if (!overrides.documentId) {
+    const document = await buildDocument({
+      createdById: overrides.userId,
+      teamId: user?.teamId,
+    });
+    overrides.documentId = document.id;
+  }
+
+  return Star.create({
+    index: "h",
+    ...overrides,
+  });
+}
+
 export function buildTeam(overrides: Record<string, any> = {}) {
   count++;
   return Team.create(
@@ -64,7 +89,7 @@ export function buildTeam(overrides: Record<string, any> = {}) {
   );
 }
 
-export function buildEvent(overrides: Record<string, any> = {}) {
+export function buildEvent(overrides: Partial<Event> = {}) {
   return Event.create({
     name: "documents.publish",
     ip: "127.0.0.1",
@@ -72,7 +97,7 @@ export function buildEvent(overrides: Record<string, any> = {}) {
   });
 }
 
-export async function buildGuestUser(overrides: Record<string, any> = {}) {
+export async function buildGuestUser(overrides: Partial<User> = {}) {
   if (!overrides.teamId) {
     const team = await buildTeam();
     overrides.teamId = team.id;
@@ -88,10 +113,14 @@ export async function buildGuestUser(overrides: Record<string, any> = {}) {
   });
 }
 
-export async function buildUser(overrides: Record<string, any> = {}) {
+export async function buildUser(overrides: Partial<User> = {}) {
+  let team;
+
   if (!overrides.teamId) {
-    const team = await buildTeam();
+    team = await buildTeam();
     overrides.teamId = team.id;
+  } else {
+    team = await Team.findByPk(overrides.teamId);
   }
 
   const authenticationProvider = await AuthenticationProvider.findOne({
@@ -109,7 +138,7 @@ export async function buildUser(overrides: Record<string, any> = {}) {
       lastActiveAt: new Date("2018-01-01T00:00:00.000Z"),
       authentications: [
         {
-          authenticationProviderId: authenticationProvider.id,
+          authenticationProviderId: authenticationProvider!.id,
           providerId: uuidv4(),
         },
       ],
@@ -121,11 +150,11 @@ export async function buildUser(overrides: Record<string, any> = {}) {
   );
 }
 
-export async function buildAdmin(overrides: Record<string, any> = {}) {
+export async function buildAdmin(overrides: Partial<User> = {}) {
   return buildUser({ ...overrides, isAdmin: true });
 }
 
-export async function buildInvite(overrides: Record<string, any> = {}) {
+export async function buildInvite(overrides: Partial<User> = {}) {
   if (!overrides.teamId) {
     const team = await buildTeam();
     overrides.teamId = team.id;
@@ -140,7 +169,7 @@ export async function buildInvite(overrides: Record<string, any> = {}) {
   });
 }
 
-export async function buildIntegration(overrides: Record<string, any> = {}) {
+export async function buildIntegration(overrides: Partial<Integration> = {}) {
   if (!overrides.teamId) {
     const team = await buildTeam();
     overrides.teamId = team.id;
@@ -167,7 +196,9 @@ export async function buildIntegration(overrides: Record<string, any> = {}) {
   });
 }
 
-export async function buildCollection(overrides: Record<string, any> = {}) {
+export async function buildCollection(
+  overrides: Partial<Collection> & { userId?: string } = {}
+) {
   if (!overrides.teamId) {
     const team = await buildTeam();
     overrides.teamId = team.id;
@@ -190,7 +221,9 @@ export async function buildCollection(overrides: Record<string, any> = {}) {
   });
 }
 
-export async function buildGroup(overrides: Record<string, any> = {}) {
+export async function buildGroup(
+  overrides: Partial<Group> & { userId?: string } = {}
+) {
   if (!overrides.teamId) {
     const team = await buildTeam();
     overrides.teamId = team.id;
@@ -211,7 +244,9 @@ export async function buildGroup(overrides: Record<string, any> = {}) {
   });
 }
 
-export async function buildGroupUser(overrides: Record<string, any> = {}) {
+export async function buildGroupUser(
+  overrides: Partial<GroupUser> & { userId?: string; teamId?: string } = {}
+) {
   if (!overrides.teamId) {
     const team = await buildTeam();
     overrides.teamId = team.id;
@@ -231,7 +266,9 @@ export async function buildGroupUser(overrides: Record<string, any> = {}) {
   });
 }
 
-export async function buildDocument(overrides: Record<string, any> = {}) {
+export async function buildDocument(
+  overrides: Partial<Document> & { userId?: string } = {}
+) {
   if (!overrides.teamId) {
     const team = await buildTeam();
     overrides.teamId = team.id;
@@ -243,7 +280,10 @@ export async function buildDocument(overrides: Record<string, any> = {}) {
   }
 
   if (!overrides.collectionId) {
-    const collection = await buildCollection(overrides);
+    const collection = await buildCollection({
+      teamId: overrides.teamId,
+      userId: overrides.userId,
+    });
     overrides.collectionId = collection.id;
   }
 
@@ -258,7 +298,9 @@ export async function buildDocument(overrides: Record<string, any> = {}) {
   });
 }
 
-export async function buildFileOperation(overrides: Record<string, any> = {}) {
+export async function buildFileOperation(
+  overrides: Partial<FileOperation> = {}
+) {
   if (!overrides.teamId) {
     const team = await buildTeam();
     overrides.teamId = team.id;
@@ -282,7 +324,7 @@ export async function buildFileOperation(overrides: Record<string, any> = {}) {
   });
 }
 
-export async function buildAttachment(overrides: Record<string, any> = {}) {
+export async function buildAttachment(overrides: Partial<Attachment> = {}) {
   if (!overrides.teamId) {
     const team = await buildTeam();
     overrides.teamId = team.id;
@@ -296,7 +338,10 @@ export async function buildAttachment(overrides: Record<string, any> = {}) {
   }
 
   if (!overrides.documentId) {
-    const document = await buildDocument(overrides);
+    const document = await buildDocument({
+      teamId: overrides.teamId,
+      userId: overrides.userId,
+    });
     overrides.documentId = document.id;
   }
 

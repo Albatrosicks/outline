@@ -1,5 +1,4 @@
 import { darken, lighten } from "polished";
-import { DefaultTheme } from "styled-components";
 
 const colors = {
   transparent: "transparent",
@@ -65,6 +64,7 @@ export const base = {
   buttonText: colors.white,
   textHighlight: "#FDEA9B",
   textHighlightForeground: colors.almostBlack,
+  code: colors.lightBlack,
   codeComment: "#6a737d",
   codePunctuation: "#5e6687",
   codeNumber: "#d73a49",
@@ -123,7 +123,7 @@ export const base = {
   },
 };
 
-export const light: DefaultTheme = {
+export const light = {
   ...base,
   background: colors.white,
   secondaryBackground: colors.warmGrey,
@@ -155,6 +155,7 @@ export const light: DefaultTheme = {
   tableDivider: colors.smokeDark,
   tableSelected: colors.primary,
   tableSelectedBackground: "#E5F7FF",
+  tableHeaderBackground: colors.white,
   buttonNeutralBackground: colors.white,
   buttonNeutralText: colors.almostBlack,
   buttonNeutralBorder: darken(0.15, colors.white),
@@ -172,7 +173,7 @@ export const light: DefaultTheme = {
   scrollbarThumb: darken(0.15, colors.smokeDark),
 };
 
-export const dark: DefaultTheme = {
+export const dark = {
   ...base,
   background: colors.almostBlack,
   secondaryBackground: colors.black50,
@@ -204,6 +205,7 @@ export const dark: DefaultTheme = {
   tableDivider: colors.lightBlack,
   tableSelected: colors.primary,
   tableSelectedBackground: "#002333",
+  tableHeaderBackground: colors.almostBlack,
   buttonNeutralBackground: colors.almostBlack,
   buttonNeutralText: colors.white,
   buttonNeutralBorder: colors.slateDark,
@@ -212,6 +214,7 @@ export const dark: DefaultTheme = {
   toastBackground: colors.white,
   toastText: colors.lightBlack,
   quote: colors.almostWhite,
+  code: colors.almostWhite,
   codeBackground: colors.black,
   codeBorder: colors.black50,
   codeString: "#3d8fd1",
@@ -233,6 +236,7 @@ export const lightMobile = light;
 export const darkMobile = {
   ...dark,
   background: colors.black,
+  codeBackground: colors.almostBlack,
 };
 
 export default light;

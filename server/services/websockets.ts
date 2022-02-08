@@ -7,13 +7,11 @@ import SocketAuth from "socketio-auth";
 import Logger from "@server/logging/logger";
 import Metrics from "@server/logging/metrics";
 import { Document, Collection, View } from "@server/models";
+import { can } from "@server/policies";
 import { getUserForJWT } from "@server/utils/jwt";
-import policy from "../policies";
 import { websocketsQueue } from "../queues";
 import WebsocketsProcessor from "../queues/processors/websockets";
 import { client, subscriber } from "../redis";
-
-const { can } = policy;
 
 export default function init(app: Koa, server: http.Server) {
   const path = "/realtime";
@@ -31,8 +29,12 @@ export default function init(app: Koa, server: http.Server) {
   const listeners = server.listeners("upgrade");
   const ioHandleUpgrade = listeners.pop();
 
-  // @ts-expect-error ts-migrate(2345) FIXME: Argument of type 'Function | undefined' is not ass... Remove this comment to see the full error message
-  server.removeListener("upgrade", ioHandleUpgrade);
+  if (ioHandleUpgrade) {
+    server.removeListener(
+      "upgrade",
+      ioHandleUpgrade as (...args: any[]) => void
+    );
+  }
 
   server.on("upgrade", function (req, socket, head) {
     if (req.url && req.url.indexOf(path) > -1) {
@@ -178,7 +180,6 @@ export default function init(app: Koa, server: http.Server) {
                 socket.emit("document.presence", {
                   documentId: event.documentId,
                   userIds: Array.from(userIds.keys()),
-                  // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'view' implicitly has an 'any' type.
                   editingIds: editing.map((view) => view.userId),
                 });
               });

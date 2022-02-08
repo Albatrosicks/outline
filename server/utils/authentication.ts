@@ -12,11 +12,14 @@ export function getAllowedDomains(): string[] {
   return env ? env.split(",") : [];
 }
 
+export function isDomainAllowed(domain: string): boolean {
+  const allowedDomains = getAllowedDomains();
+  return allowedDomains.includes(domain) || allowedDomains.length === 0;
+}
+
 export async function signIn(
   ctx: Context,
-  // @ts-expect-error ts-migrate(2749) FIXME: 'User' refers to a value, but is being used as a t... Remove this comment to see the full error message
   user: User,
-  // @ts-expect-error ts-migrate(2749) FIXME: 'Team' refers to a value, but is being used as a t... Remove this comment to see the full error message
   team: Team,
   service: string,
   _isNewUser = false,

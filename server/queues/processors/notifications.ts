@@ -1,3 +1,6 @@
+import { Op } from "sequelize";
+import Logger from "@server/logging/logger";
+import mailer from "@server/mailer";
 import {
   View,
   Document,
@@ -6,15 +9,12 @@ import {
   User,
   NotificationSetting,
 } from "@server/models";
-import { Op } from "@server/sequelize";
-import Logger from "../../logging/logger";
-import mailer from "../../mailer";
 import {
   DocumentEvent,
   CollectionEvent,
   RevisionEvent,
   Event,
-} from "../../types";
+} from "@server/types";
 
 export default class NotificationsProcessor {
   async on(event: Event) {
@@ -33,12 +33,16 @@ export default class NotificationsProcessor {
   async documentUpdated(event: DocumentEvent | RevisionEvent) {
     // never send notifications when batch importing documents
     // @ts-expect-error ts-migrate(2339) FIXME: Property 'data' does not exist on type 'DocumentEv... Remove this comment to see the full error message
-    if (event.data && event.data.source === "import") return;
+    if (event.data?.source === "import") {
+      return;
+    }
     const [document, team] = await Promise.all([
       Document.findByPk(event.documentId),
       Team.findByPk(event.teamId),
     ]);
-    if (!document || !team || !document.collection) return;
+    if (!document || !team || !document.collection) {
+      return;
+    }
     const { collection } = document;
     const notificationSettings = await NotificationSetting.findAll({
       where: {
@@ -106,6 +110,10 @@ export default class NotificationsProcessor {
         continue;
       }
 
+      if (!setting.user.email) {
+        continue;
+      }
+
       mailer.documentNotification({
         to: setting.user.email,
         eventName,
@@ -128,8 +136,12 @@ export default class NotificationsProcessor {
         },
       ],
     });
-    if (!collection) return;
-    if (!collection.permission) return;
+    if (!collection) {
+      return;
+    }
+    if (!collection.permission) {
+      return;
+    }
     const notificationSettings = await NotificationSetting.findAll({
       where: {
         userId: {
@@ -149,7 +161,7 @@ export default class NotificationsProcessor {
 
     for (const setting of notificationSettings) {
       // Suppress notifications for suspended users
-      if (setting.user.isSuspended) {
+      if (setting.user.isSuspended || !setting.user.email) {
         continue;
       }
 

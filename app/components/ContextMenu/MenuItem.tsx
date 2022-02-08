@@ -3,6 +3,7 @@ import * as React from "react";
 import { MenuItem as BaseMenuItem } from "reakit/Menu";
 import styled, { css } from "styled-components";
 import breakpoint from "styled-components-breakpoint";
+import { hover } from "~/styles";
 import MenuIconWrapper from "../MenuIconWrapper";
 
 type Props = {
@@ -16,7 +17,7 @@ type Props = {
   as?: string | React.ComponentType<any>;
   hide?: () => void;
   level?: number;
-  icon?: React.ReactNode;
+  icon?: React.ReactElement;
 };
 
 const MenuItem = ({
@@ -73,7 +74,11 @@ const MenuItem = ({
               &nbsp;
             </>
           )}
-          {icon && <MenuIconWrapper>{icon}</MenuIconWrapper>}
+          {icon && (
+            <MenuIconWrapper>
+              {React.cloneElement(icon, { color: "currentColor" })}
+            </MenuIconWrapper>
+          )}
           {children}
         </MenuAnchor>
       )}
@@ -103,6 +108,7 @@ export const MenuAnchorCSS = css<{ level?: number; disabled?: boolean }>`
   font-size: 16px;
   cursor: default;
   user-select: none;
+  white-space: nowrap;
 
   svg:not(:last-child) {
     margin-right: 4px;
@@ -118,7 +124,7 @@ export const MenuAnchorCSS = css<{ level?: number; disabled?: boolean }>`
       ? "pointer-events: none;"
       : `
 
-  &:hover,  
+  &:${hover},
   &:focus,
   &.focus-visible {
     color: ${props.theme.white};

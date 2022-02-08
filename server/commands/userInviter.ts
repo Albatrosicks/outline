@@ -1,7 +1,9 @@
+import invariant from "invariant";
 import { uniqBy } from "lodash";
 import { Role } from "@shared/types";
+import Logger from "@server/logging/logger";
+import mailer from "@server/mailer";
 import { User, Event, Team } from "@server/models";
-import mailer from "../mailer";
 
 type Invite = {
   name: string;
@@ -14,16 +16,16 @@ export default async function userInviter({
   invites,
   ip,
 }: {
-  // @ts-expect-error ts-migrate(2749) FIXME: 'User' refers to a value, but is being used as a t... Remove this comment to see the full error message
   user: User;
   invites: Invite[];
   ip: string;
 }): Promise<{
   sent: Invite[];
-  // @ts-expect-error ts-migrate(2749) FIXME: 'User' refers to a value, but is being used as a t... Remove this comment to see the full error message
   users: User[];
 }> {
   const team = await Team.findByPk(user.teamId);
+  invariant(team, "team not found");
+
   // filter out empties and obvious non-emails
   const compactedInvites = invites.filter(
     (invite) => !!invite.email.trim() && invite.email.match("@")
@@ -44,7 +46,6 @@ export default async function userInviter({
       email: emails,
     },
   });
-  // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'user' implicitly has an 'any' type.
   const existingEmails = existingUsers.map((user) => user.email);
   const filteredInvites = normalizedInvites.filter(
     (invite) => !existingEmails.includes(invite.email)
@@ -81,6 +82,15 @@ export default async function userInviter({
       teamName: team.name,
       teamUrl: team.url,
     });
+
+    if (process.env.NODE_ENV === "development") {
+      Logger.info(
+        "email",
+        `Sign in immediately: ${
+          process.env.URL
+        }/auth/email.callback?token=${newUser.getEmailSigninToken()}`
+      );
+    }
   }
 
   return {

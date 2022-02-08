@@ -6,7 +6,7 @@ import styled from "styled-components";
 const RealButton = styled.button<{
   fullwidth?: boolean;
   borderOnHover?: boolean;
-  neutral?: boolean;
+  $neutral?: boolean;
   danger?: boolean;
   iconColor?: string;
 }>`
@@ -31,7 +31,7 @@ const RealButton = styled.button<{
     !props.borderOnHover &&
     `
       svg {
-        fill: ${props.iconColor || props.theme.buttonText};
+        fill: ${props.iconColor || "currentColor"};
       }
     `}
 
@@ -55,7 +55,7 @@ const RealButton = styled.button<{
   }
 
   ${(props) =>
-    props.neutral &&
+    props.$neutral &&
     `
     background: ${props.theme.buttonNeutralBackground};
     color: ${props.theme.buttonNeutralText};
@@ -69,7 +69,7 @@ const RealButton = styled.button<{
       props.borderOnHover
         ? ""
         : `svg {
-      fill: ${props.iconColor || props.theme.buttonNeutralText};
+      fill: ${props.iconColor || "currentColor"};
     }`
     }
 
@@ -89,7 +89,7 @@ const RealButton = styled.button<{
       color: ${props.theme.textTertiary};
 
       svg {
-        fill: ${props.theme.textTertiary};
+        fill: currentColor;
       }
     }
   `}
@@ -158,11 +158,11 @@ const Button = <T extends React.ElementType = "button">(
   const hasIcon = icon !== undefined;
 
   return (
-    <RealButton type={type || "button"} ref={ref} neutral={neutral} {...rest}>
+    <RealButton type={type || "button"} ref={ref} $neutral={neutral} {...rest}>
       <Inner hasIcon={hasIcon} hasText={hasText} disclosure={disclosure}>
         {hasIcon && icon}
         {hasText && <Label hasIcon={hasIcon}>{children || value}</Label>}
-        {disclosure && <ExpandedIcon />}
+        {disclosure && <ExpandedIcon color="currentColor" />}
       </Inner>
     </RealButton>
   );

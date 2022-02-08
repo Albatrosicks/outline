@@ -1,13 +1,14 @@
 import fs from "fs";
 import path from "path";
 import util from "util";
-import Koa from "koa";
+import Koa, { Context, Next } from "koa";
 import Router from "koa-router";
 import send from "koa-send";
 import serve from "koa-static";
 import isUUID from "validator/lib/isUUID";
 import { languages } from "@shared/i18n";
 import env from "@server/env";
+import { NotFoundError } from "@server/errors";
 import Share from "@server/models/Share";
 import { opensearchResponse } from "@server/utils/opensearch";
 import prefetchTags from "@server/utils/prefetchTags";
@@ -21,8 +22,7 @@ const koa = new Koa();
 const router = new Router();
 const readFile = util.promisify(fs.readFile);
 
-// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'ctx' implicitly has an 'any' type.
-const readIndexFile = async (ctx) => {
+const readIndexFile = async (ctx: Context): Promise<Buffer> => {
   if (isProduction) {
     return readFile(path.join(__dirname, "../../app/index.html"));
   }
@@ -36,8 +36,7 @@ const readIndexFile = async (ctx) => {
   return new Promise((resolve, reject) => {
     middleware.fileSystem.readFile(
       `${ctx.webpackConfig.output.path}/index.html`,
-      // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
-      (err, result) => {
+      (err: Error, result: Buffer) => {
         if (err) {
           return reject(err);
         }
@@ -48,8 +47,7 @@ const readIndexFile = async (ctx) => {
   });
 };
 
-// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'ctx' implicitly has an 'any' type.
-const renderApp = async (ctx, next, title = "Outline") => {
+const renderApp = async (ctx: Context, next: Next, title = "Outline") => {
   if (ctx.request.path === "/realtime/") {
     return next();
   }
@@ -58,7 +56,6 @@ const renderApp = async (ctx, next, title = "Outline") => {
   const environment = `
     window.env = ${JSON.stringify(presentEnv(env))};
   `;
-  // @ts-expect-error ts-migrate(2571) FIXME: Object is of type 'unknown'.
   ctx.body = page
     .toString()
     .replace(/\/\/inject-env\/\//g, environment)
@@ -67,8 +64,7 @@ const renderApp = async (ctx, next, title = "Outline") => {
     .replace(/\/\/inject-slack-app-id\/\//g, process.env.SLACK_APP_ID || "");
 };
 
-// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'ctx' implicitly has an 'any' type.
-const renderShare = async (ctx, next) => {
+const renderShare = async (ctx: Context, next: Next) => {
   const { shareId } = ctx.params;
   // Find the share record if publicly published so that the document title
   // can be be returned in the server-rendered HTML. This allows it to appear in
@@ -99,7 +95,12 @@ koa.use(
 if (process.env.NODE_ENV === "production") {
   router.get("/static/*", async (ctx) => {
     try {
-      await send(ctx, ctx.path.substring(8), {
+      const pathname = ctx.path.substring(8);
+      if (!pathname) {
+        throw NotFoundError();
+      }
+
+      await send(ctx, pathname, {
         root: path.join(__dirname, "../../app/"),
         setHeaders: (res) => {
           res.setHeader("Service-Worker-Allowed", "/");
@@ -145,6 +146,7 @@ router.get("/robots.txt", (ctx) => {
 
 router.get("/opensearch.xml", (ctx) => {
   ctx.type = "text/xml";
+
   ctx.body = opensearchResponse();
 });
 
