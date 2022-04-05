@@ -1,10 +1,15 @@
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Portal } from "react-portal";
 import { Menu } from "reakit/Menu";
 import styled from "styled-components";
 import breakpoint from "styled-components-breakpoint";
+import { depths } from "@shared/styles";
+import useMenuContext from "~/hooks/useMenuContext";
 import useMenuHeight from "~/hooks/useMenuHeight";
 import usePrevious from "~/hooks/usePrevious";
+import useStores from "~/hooks/useStores";
+import useUnmount from "~/hooks/useUnmount";
 import {
   fadeIn,
   fadeAndSlideUp,
@@ -34,27 +39,36 @@ type Props = {
   visible?: boolean;
   placement?: Placement;
   animating?: boolean;
-  children: React.ReactNode;
   unstable_disclosureRef?: React.RefObject<HTMLElement | null>;
   onOpen?: () => void;
   onClose?: () => void;
   hide?: () => void;
 };
 
-export default function ContextMenu({
+const ContextMenu: React.FC<Props> = ({
   children,
   onOpen,
   onClose,
   ...rest
-}: Props) {
+}) => {
   const previousVisible = usePrevious(rest.visible);
   const maxHeight = useMenuHeight(rest.visible, rest.unstable_disclosureRef);
   const backgroundRef = React.useRef<HTMLDivElement>(null);
+  const { ui } = useStores();
+  const { t } = useTranslation();
+  const { setIsMenuOpen } = useMenuContext();
+
+  useUnmount(() => {
+    setIsMenuOpen(false);
+  });
 
   React.useEffect(() => {
     if (rest.visible && !previousVisible) {
       if (onOpen) {
         onOpen();
+      }
+      if (rest["aria-label"] !== t("Submenu")) {
+        setIsMenuOpen(true);
       }
     }
 
@@ -62,8 +76,20 @@ export default function ContextMenu({
       if (onClose) {
         onClose();
       }
+      if (rest["aria-label"] !== t("Submenu")) {
+        setIsMenuOpen(false);
+      }
     }
-  }, [onOpen, onClose, previousVisible, rest.visible]);
+  }, [
+    onOpen,
+    onClose,
+    previousVisible,
+    rest.visible,
+    ui.sidebarCollapsed,
+    setIsMenuOpen,
+    rest,
+    t,
+  ]);
 
   // Perf win – don't render anything until the menu has been opened
   if (!rest.visible && !previousVisible) {
@@ -111,7 +137,9 @@ export default function ContextMenu({
       )}
     </>
   );
-}
+};
+
+export default ContextMenu;
 
 export const Backdrop = styled.div`
   animation: ${fadeIn} 200ms ease-in-out;
@@ -121,7 +149,7 @@ export const Backdrop = styled.div`
   right: 0;
   bottom: 0;
   background: ${(props) => props.theme.backdrop};
-  z-index: ${(props) => props.theme.depths.menu - 1};
+  z-index: ${depths.menu - 1};
 
   ${breakpoint("tablet")`
     display: none;
@@ -130,7 +158,7 @@ export const Backdrop = styled.div`
 
 export const Position = styled.div`
   position: absolute;
-  z-index: ${(props) => props.theme.depths.menu};
+  z-index: ${depths.menu};
 
   // overrides make mobile-first coding style challenging
   // so we explicitly define mobile breakpoint here

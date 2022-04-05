@@ -11,7 +11,7 @@ import { VisuallyHidden } from "reakit/VisuallyHidden";
 import scrollIntoView from "smooth-scroll-into-view-if-needed";
 import styled, { css } from "styled-components";
 import Button, { Inner } from "~/components/Button";
-import HelpText from "~/components/HelpText";
+import Text from "~/components/Text";
 import useMenuHeight from "~/hooks/useMenuHeight";
 import { Position, Background, Backdrop, Placement } from "./ContextMenu";
 import { MenuAnchorCSS } from "./ContextMenu/MenuItem";
@@ -23,6 +23,8 @@ export type Option = {
 };
 
 export type Props = {
+  id?: string;
+  name?: string;
   value?: string | null;
   label?: string;
   nude?: boolean;
@@ -54,6 +56,7 @@ const InputSelect = (props: Props) => {
     disabled,
     note,
     icon,
+    ...rest
   } = props;
 
   const select = useSelectState({
@@ -128,7 +131,7 @@ const InputSelect = (props: Props) => {
             wrappedLabel
           ))}
 
-        <Select {...select} disabled={disabled} ref={buttonRef}>
+        <Select {...select} disabled={disabled} {...rest} ref={buttonRef}>
           {(props) => (
             <StyledButton
               neutral
@@ -203,7 +206,11 @@ const InputSelect = (props: Props) => {
           }}
         </SelectPopover>
       </Wrapper>
-      {note && <HelpText small>{note}</HelpText>}
+      {note && (
+        <Text type="secondary" size="small">
+          {note}
+        </Text>
+      )}
       {select.visible && <Backdrop />}
     </>
   );
@@ -225,6 +232,7 @@ const StyledButton = styled(Button)<{ nude?: boolean }>`
   margin-bottom: 16px;
   display: block;
   width: 100%;
+  cursor: default;
 
   &:hover:not(:disabled) {
     background: ${(props) => props.theme.buttonNeutralBackground};

@@ -5,16 +5,19 @@ import { Portal } from "react-portal";
 import { useLocation } from "react-router-dom";
 import styled, { useTheme } from "styled-components";
 import breakpoint from "styled-components-breakpoint";
-import Fade from "~/components/Fade";
+import { depths } from "@shared/styles";
 import Flex from "~/components/Flex";
+import useMenuContext from "~/hooks/useMenuContext";
 import usePrevious from "~/hooks/usePrevious";
 import useStores from "~/hooks/useStores";
+import AccountMenu from "~/menus/AccountMenu";
 import { fadeIn } from "~/styles/animations";
+import Avatar from "../Avatar";
 import ResizeBorder from "./components/ResizeBorder";
+import SidebarButton, { SidebarButtonProps } from "./components/SidebarButton";
 import Toggle, { ToggleButton, Positioner } from "./components/Toggle";
 
 const ANIMATION_MS = 250;
-let isFirstRender = true;
 
 type Props = {
   children: React.ReactNode;
@@ -25,11 +28,14 @@ const Sidebar = React.forwardRef<HTMLDivElement, Props>(
     const [isCollapsing, setCollapsing] = React.useState(false);
     const theme = useTheme();
     const { t } = useTranslation();
-    const { ui } = useStores();
+    const { ui, auth } = useStores();
     const location = useLocation();
     const previousLocation = usePrevious(location);
+    const { isMenuOpen } = useMenuContext();
+    const { user } = auth;
+
     const width = ui.sidebarWidth;
-    const collapsed = ui.isEditing || ui.sidebarCollapsed;
+    const collapsed = (ui.isEditing || ui.sidebarCollapsed) && !isMenuOpen;
     const maxWidth = theme.sidebarMaxWidth;
     const minWidth = theme.sidebarMinWidth + 16; // padding
 
@@ -126,7 +132,6 @@ const Sidebar = React.forwardRef<HTMLDivElement, Props>(
 
     React.useEffect(() => {
       if (location !== previousLocation) {
-        isFirstRender = false;
         ui.hideMobileSidebar();
       }
     }, [ui, location, previousLocation]);
@@ -146,28 +151,6 @@ const Sidebar = React.forwardRef<HTMLDivElement, Props>(
       [width, theme.sidebarCollapsedWidth, collapsed]
     );
 
-    const content = (
-      <>
-        {ui.mobileSidebarVisible && (
-          <Portal>
-            <Backdrop onClick={ui.toggleMobileSidebar} />
-          </Portal>
-        )}
-        {children}
-        <ResizeBorder
-          onMouseDown={handleMouseDown}
-          onDoubleClick={ui.sidebarCollapsed ? undefined : handleReset}
-        />
-        {ui.sidebarCollapsed && !ui.isEditing && (
-          <Toggle
-            onClick={ui.toggleCollapsedSidebar}
-            direction={"right"}
-            aria-label={t("Expand")}
-          />
-        )}
-      </>
-    );
-
     return (
       <>
         <Container
@@ -179,7 +162,43 @@ const Sidebar = React.forwardRef<HTMLDivElement, Props>(
           $collapsed={collapsed}
           column
         >
-          {isFirstRender ? <Fade>{content}</Fade> : content}
+          {ui.mobileSidebarVisible && (
+            <Portal>
+              <Backdrop onClick={ui.toggleMobileSidebar} />
+            </Portal>
+          )}
+          {children}
+
+          {user && (
+            <AccountMenu>
+              {(props: SidebarButtonProps) => (
+                <SidebarButton
+                  {...props}
+                  showMoreMenu
+                  title={user.name}
+                  image={
+                    <StyledAvatar
+                      alt={user.name}
+                      src={user.avatarUrl}
+                      size={24}
+                      showBorder={false}
+                    />
+                  }
+                />
+              )}
+            </AccountMenu>
+          )}
+          <ResizeBorder
+            onMouseDown={handleMouseDown}
+            onDoubleClick={ui.sidebarCollapsed ? undefined : handleReset}
+          />
+          {ui.sidebarCollapsed && !ui.isEditing && (
+            <Toggle
+              onClick={ui.toggleCollapsedSidebar}
+              direction={"right"}
+              aria-label={t("Expand")}
+            />
+          )}
         </Container>
         {!ui.isEditing && (
           <Toggle
@@ -194,6 +213,10 @@ const Sidebar = React.forwardRef<HTMLDivElement, Props>(
   }
 );
 
+const StyledAvatar = styled(Avatar)`
+  margin-left: 4px;
+`;
+
 const Backdrop = styled.a`
   animation: ${fadeIn} 250ms ease-in-out;
   position: fixed;
@@ -202,7 +225,7 @@ const Backdrop = styled.a`
   bottom: 0;
   right: 0;
   cursor: default;
-  z-index: ${(props) => props.theme.depths.sidebar - 1};
+  z-index: ${depths.sidebar - 1};
   background: ${(props) => props.theme.backdrop};
 `;
 
@@ -224,7 +247,7 @@ const Container = styled(Flex)<{
   transform: translateX(
     ${(props) => (props.$mobileSidebarVisible ? 0 : "-100%")}
   );
-  z-index: ${(props) => props.theme.depths.sidebar};
+  z-index: ${depths.sidebar};
   max-width: 70%;
   min-width: 280px;
 

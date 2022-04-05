@@ -6,6 +6,7 @@ import documentCreator from "@server/commands/documentCreator";
 import documentImporter from "@server/commands/documentImporter";
 import documentMover from "@server/commands/documentMover";
 import documentPermanentDeleter from "@server/commands/documentPermanentDeleter";
+import { sequelize } from "@server/database/sequelize";
 import {
   NotFoundError,
   InvalidRequestError,
@@ -37,6 +38,7 @@ import {
   assertIn,
   assertPresent,
   assertPositiveInteger,
+  assertNotEmpty,
 } from "@server/validation";
 import env from "../../env";
 import pagination from "./middlewares/pagination";
@@ -283,15 +285,6 @@ router.post("documents.viewed", auth(), pagination(), async (ctx) => {
         },
         include: [
           {
-            model: Star,
-            as: "starred",
-            where: {
-              userId,
-            },
-            separate: true,
-            required: false,
-          },
-          {
             model: Collection.scope({
               method: ["withMembership", userId],
             }),
@@ -308,62 +301,6 @@ router.post("documents.viewed", auth(), pagination(), async (ctx) => {
     document.views = [view];
     return document;
   });
-  const data = await Promise.all(
-    documents.map((document) => presentDocument(document))
-  );
-  const policies = presentPolicies(user, documents);
-
-  ctx.body = {
-    pagination: ctx.state.pagination,
-    data,
-    policies,
-  };
-});
-
-// Deprecated – use stars.list instead
-router.post("documents.starred", auth(), pagination(), async (ctx) => {
-  let { direction } = ctx.body;
-  const { sort = "updatedAt" } = ctx.body;
-
-  assertSort(sort, Document);
-  if (direction !== "ASC") {
-    direction = "DESC";
-  }
-  const { user } = ctx.state;
-  const collectionIds = await user.collectionIds();
-  const stars = await Star.findAll({
-    where: {
-      userId: user.id,
-    },
-    order: [[sort, direction]],
-    include: [
-      {
-        model: Document,
-        where: {
-          collectionId: collectionIds,
-        },
-        include: [
-          {
-            model: Collection.scope({
-              method: ["withMembership", user.id],
-            }),
-            as: "collection",
-          },
-          {
-            model: Star,
-            as: "starred",
-            where: {
-              userId: user.id,
-            },
-          },
-        ],
-      },
-    ],
-    offset: ctx.state.pagination.offset,
-    limit: ctx.state.pagination.limit,
-  });
-
-  const documents = stars.map((star) => star.document);
   const data = await Promise.all(
     documents.map((document) => presentDocument(document))
   );
@@ -549,10 +486,12 @@ async function loadDocument({
     // shared then includeChildDocuments must be enabled and the document must
     // still be nested within the shared document
     if (share.document.id !== document.id) {
-      if (
-        !share.includeChildDocuments ||
-        !collection.isChildDocument(share.document.id, document.id)
-      ) {
+      if (!share.includeChildDocuments) {
+        throw AuthorizationError();
+      }
+
+      const childDocumentIds = await share.document.getChildDocumentIds();
+      if (!childDocumentIds.includes(document.id)) {
         throw AuthorizationError();
       }
     }
@@ -812,7 +751,7 @@ router.post("documents.search", auth(), pagination(), async (ctx) => {
   const { offset, limit } = ctx.state.pagination;
   const { user } = ctx.state;
 
-  assertPresent(query, "query is required");
+  assertNotEmpty(query, "query is required");
 
   if (collectionId) {
     assertUuid(collectionId, "collectionId must be a UUID");
@@ -1008,7 +947,6 @@ router.post("documents.update", auth(), async (ctx) => {
   } = ctx.body;
   const editorVersion = ctx.headers["x-editor-version"] as string | undefined;
   assertPresent(id, "id is required");
-  assertPresent(title || text, "title or text is required");
   if (append) {
     assertPresent(text, "Text is required while appending");
   }
@@ -1026,7 +964,7 @@ router.post("documents.update", auth(), async (ctx) => {
   const previousTitle = document.title;
 
   // Update document
-  if (title) {
+  if (title !== undefined) {
     document.title = title;
   }
   if (editorVersion) {
@@ -1050,28 +988,11 @@ router.post("documents.update", auth(), async (ctx) => {
   document.lastModifiedById = user.id;
   const { collection } = document;
   const changed = document.changed();
-  let transaction;
 
-  try {
-    transaction = await document.sequelize.transaction();
-
-    if (publish) {
-      await document.publish(user.id, {
-        transaction,
-      });
-    } else {
-      await document.save({
-        transaction,
-      });
-    }
-
-    await transaction.commit();
-  } catch (err) {
-    if (transaction) {
-      await transaction.rollback();
-    }
-
-    throw err;
+  if (publish) {
+    await document.publish(user.id);
+  } else {
+    await document.save();
   }
 
   if (publish) {
@@ -1163,14 +1084,21 @@ router.post("documents.move", auth(), async (ctx) => {
     authorize(user, "update", parent);
   }
 
-  const { documents, collections, collectionChanged } = await documentMover({
-    user,
-    document,
-    collectionId,
-    parentDocumentId,
-    index,
-    ip: ctx.request.ip,
-  });
+  const {
+    documents,
+    collections,
+    collectionChanged,
+  } = await sequelize.transaction(async (transaction) =>
+    documentMover({
+      user,
+      document,
+      collectionId,
+      parentDocumentId,
+      index,
+      ip: ctx.request.ip,
+      transaction,
+    })
+  );
 
   ctx.body = {
     data: {

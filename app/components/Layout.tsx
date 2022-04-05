@@ -8,17 +8,17 @@ import { LoadingIndicatorBar } from "~/components/LoadingIndicator";
 import SkipNavContent from "~/components/SkipNavContent";
 import SkipNavLink from "~/components/SkipNavLink";
 import useKeyDown from "~/hooks/useKeyDown";
+import { MenuProvider } from "~/hooks/useMenuContext";
 import useStores from "~/hooks/useStores";
 import { isModKey } from "~/utils/keyboard";
 
 type Props = {
   title?: string;
-  children?: React.ReactNode;
   sidebar?: React.ReactNode;
   rightRail?: React.ReactNode;
 };
 
-function Layout({ title, children, sidebar, rightRail }: Props) {
+const Layout: React.FC<Props> = ({ title, children, sidebar, rightRail }) => {
   const { ui } = useStores();
   const sidebarCollapsed = !sidebar || ui.isEditing || ui.sidebarCollapsed;
 
@@ -40,7 +40,7 @@ function Layout({ title, children, sidebar, rightRail }: Props) {
       {ui.progressBarVisible && <LoadingIndicatorBar />}
 
       <Container auto>
-        {sidebar}
+        <MenuProvider>{sidebar}</MenuProvider>
 
         <SkipNavContent />
         <Content
@@ -64,7 +64,7 @@ function Layout({ title, children, sidebar, rightRail }: Props) {
       </Container>
     </Container>
   );
-}
+};
 
 const Container = styled(Flex)`
   background: ${(props) => props.theme.background};

@@ -1263,6 +1263,17 @@ describe("#documents.search", () => {
     expect(body.data.length).toEqual(0);
   });
 
+  it("should expect a query", async () => {
+    const { user } = await seed();
+    const res = await server.post("/api/documents.search", {
+      body: {
+        token: user.getJwtToken(),
+        query: "   ",
+      },
+    });
+    expect(res.status).toEqual(400);
+  });
+
   it("should not allow unknown dateFilter values", async () => {
     const { user } = await seed();
     const res = await server.post("/api/documents.search", {
@@ -1438,45 +1449,6 @@ describe("#documents.viewed", () => {
 
   it("should require authentication", async () => {
     const res = await server.post("/api/documents.viewed");
-    const body = await res.json();
-    expect(res.status).toEqual(401);
-    expect(body).toMatchSnapshot();
-  });
-});
-
-describe("#documents.starred", () => {
-  it("should return empty result if no stars", async () => {
-    const { user } = await seed();
-    const res = await server.post("/api/documents.starred", {
-      body: {
-        token: user.getJwtToken(),
-      },
-    });
-    const body = await res.json();
-    expect(res.status).toEqual(200);
-    expect(body.data.length).toEqual(0);
-  });
-
-  it("should return starred documents", async () => {
-    const { user, document } = await seed();
-    await Star.create({
-      documentId: document.id,
-      userId: user.id,
-    });
-    const res = await server.post("/api/documents.starred", {
-      body: {
-        token: user.getJwtToken(),
-      },
-    });
-    const body = await res.json();
-    expect(res.status).toEqual(200);
-    expect(body.data.length).toEqual(1);
-    expect(body.data[0].id).toEqual(document.id);
-    expect(body.policies[0].abilities.update).toEqual(true);
-  });
-
-  it("should require authentication", async () => {
-    const res = await server.post("/api/documents.starred");
     const body = await res.json();
     expect(res.status).toEqual(401);
     expect(body).toMatchSnapshot();

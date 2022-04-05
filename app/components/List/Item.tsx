@@ -3,14 +3,13 @@ import styled, { useTheme } from "styled-components";
 import Flex from "~/components/Flex";
 import NavLink from "~/components/NavLink";
 
-type Props = {
+export type Props = {
   image?: React.ReactNode;
   to?: string;
   exact?: boolean;
   title: React.ReactNode;
   subtitle?: React.ReactNode;
   actions?: React.ReactNode;
-  compact?: boolean;
   border?: boolean;
   small?: boolean;
 };
@@ -50,7 +49,7 @@ const ListItem = (
       <Wrapper
         ref={ref}
         $border={border}
-        $compact={compact}
+        $small={small}
         activeStyle={{
           background: theme.primary,
         }}
@@ -64,16 +63,17 @@ const ListItem = (
   }
 
   return (
-    <Wrapper $compact={compact} $border={border} {...rest}>
+    <Wrapper ref={ref} $border={border} $small={small} {...rest}>
       {content(false)}
     </Wrapper>
   );
 };
 
-const Wrapper = styled.div<{ $compact?: boolean; $border?: boolean }>`
+const Wrapper = styled.a<{ $small?: boolean; $border?: boolean; to?: string }>`
   display: flex;
-  margin: ${(props) => (props.$compact === false ? 0 : "8px 0")};
-  padding: ${(props) => (props.$compact === false ? "8px 0" : 0)};
+  padding: ${(props) => (props.$border === false ? 0 : "8px 0")};
+  margin: ${(props) =>
+    props.$border === false ? (props.$small ? "8px 0" : "16px 0") : 0};
   border-bottom: 1px solid
     ${(props) =>
       props.$border === false ? "transparent" : props.theme.divider};
@@ -81,6 +81,8 @@ const Wrapper = styled.div<{ $compact?: boolean; $border?: boolean }>`
   &:last-child {
     border-bottom: 0;
   }
+
+  cursor: ${({ to }) => (to ? "pointer" : "default")};
 `;
 
 const Image = styled(Flex)`

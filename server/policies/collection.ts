@@ -8,7 +8,10 @@ allow(User, "createCollection", Team, (user, team) => {
   if (!team || user.isViewer || user.teamId !== team.id) {
     return false;
   }
-  return true;
+  if (user.isAdmin || team.memberCollectionCreate) {
+    return true;
+  }
+  return false;
 });
 
 allow(User, "importCollection", Team, (actor, team) => {
@@ -36,7 +39,7 @@ allow(User, "move", Collection, (user, collection) => {
   throw AdminRequiredError();
 });
 
-allow(User, "read", Collection, (user, collection) => {
+allow(User, ["read", "star", "unstar"], Collection, (user, collection) => {
   if (!collection || user.teamId !== collection.teamId) {
     return false;
   }

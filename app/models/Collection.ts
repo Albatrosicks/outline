@@ -1,5 +1,6 @@
 import { trim } from "lodash";
 import { action, computed, observable } from "mobx";
+import CollectionsStore from "~/stores/CollectionsStore";
 import BaseModel from "~/models/BaseModel";
 import Document from "~/models/Document";
 import { NavigationNode } from "~/types";
@@ -7,6 +8,8 @@ import { client } from "~/utils/ApiClient";
 import Field from "./decorators/Field";
 
 export default class Collection extends BaseModel {
+  store: CollectionsStore;
+
   @observable
   isSaving: boolean;
 
@@ -66,7 +69,10 @@ export default class Collection extends BaseModel {
 
   @computed
   get isEmpty(): boolean {
-    return this.documents.length === 0;
+    return (
+      this.documents.length === 0 &&
+      this.store.rootStore.documents.inCollection(this.id).length === 0
+    );
   }
 
   @computed
@@ -86,6 +92,13 @@ export default class Collection extends BaseModel {
   @computed
   get hasDescription(): boolean {
     return !!trim(this.description, "\\").trim();
+  }
+
+  @computed
+  get isStarred(): boolean {
+    return !!this.store.rootStore.stars.orderedData.find(
+      (star) => star.collectionId === this.id
+    );
   }
 
   @action
@@ -163,6 +176,16 @@ export default class Collection extends BaseModel {
 
     return path || [];
   }
+
+  @action
+  star = async () => {
+    return this.store.star(this);
+  };
+
+  @action
+  unstar = async () => {
+    return this.store.unstar(this);
+  };
 
   export = () => {
     return client.get("/collections.export", {

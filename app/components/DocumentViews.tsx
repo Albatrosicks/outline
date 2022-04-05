@@ -40,6 +40,7 @@ function DocumentViews({ document, isOpen }: Props) {
     <>
       {isOpen && (
         <PaginatedList
+          aria-label={t("Viewers")}
           items={users}
           renderItem={(item) => {
             const view = documentViews.find((v) => v.user.id === item.id);
@@ -61,7 +62,6 @@ function DocumentViews({ document, isOpen }: Props) {
                 subtitle={subtitle}
                 image={<Avatar key={item.id} src={item.avatarUrl} size={32} />}
                 border={false}
-                compact
                 small
               />
             );

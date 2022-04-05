@@ -1,6 +1,5 @@
 import { action, autorun, computed, observable } from "mobx";
-import { light as defaultTheme } from "@shared/theme";
-import Collection from "~/models/Collection";
+import { light as defaultTheme } from "@shared/styles/theme";
 import Document from "~/models/Document";
 import { ConnectionStatus } from "~/scenes/Document/components/MultiplayerEditor";
 
@@ -38,6 +37,9 @@ class UiStore {
 
   @observable
   observingUserId: string | undefined;
+
+  @observable
+  commandBarOpenedFromSidebar = false;
 
   @observable
   progressBarVisible = false;
@@ -121,7 +123,13 @@ class UiStore {
   };
 
   @action
-  setActiveDocument = (document: Document): void => {
+  setActiveDocument = (document: Document | string): void => {
+    if (typeof document === "string") {
+      this.activeDocumentId = document;
+      this.observingUserId = undefined;
+      return;
+    }
+
     this.activeDocumentId = document.id;
     this.observingUserId = undefined;
 
@@ -141,8 +149,8 @@ class UiStore {
   };
 
   @action
-  setActiveCollection = (collection: Collection): void => {
-    this.activeCollectionId = collection.id;
+  setActiveCollection = (collectionId: string | undefined): void => {
+    this.activeCollectionId = collectionId;
   };
 
   @action
@@ -209,6 +217,16 @@ class UiStore {
   @action
   toggleMobileSidebar = () => {
     this.mobileSidebarVisible = !this.mobileSidebarVisible;
+  };
+
+  @action
+  commandBarOpened = () => {
+    this.commandBarOpenedFromSidebar = true;
+  };
+
+  @action
+  commandBarClosed = () => {
+    this.commandBarOpenedFromSidebar = false;
   };
 
   @action

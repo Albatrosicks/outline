@@ -10,6 +10,7 @@ import {
   ShapesIcon,
   ImportIcon,
   PinIcon,
+  SearchIcon,
 } from "outline-icons";
 import * as React from "react";
 import getDataTransferFiles from "@shared/utils/getDataTransferFiles";
@@ -17,7 +18,7 @@ import DocumentTemplatize from "~/scenes/DocumentTemplatize";
 import { createAction } from "~/actions";
 import { DocumentSection } from "~/actions/sections";
 import history from "~/utils/history";
-import { homePath, newDocumentPath } from "~/utils/routeHelpers";
+import { homePath, newDocumentPath, searchPath } from "~/utils/routeHelpers";
 
 export const openDocument = createAction({
   name: ({ t }) => t("Open document"),
@@ -51,8 +52,11 @@ export const createDocument = createAction({
   visible: ({ activeCollectionId, stores }) =>
     !!activeCollectionId &&
     stores.policies.abilities(activeCollectionId).update,
-  perform: ({ activeCollectionId }) =>
-    activeCollectionId && history.push(newDocumentPath(activeCollectionId)),
+  perform: ({ activeCollectionId, inStarredSection }) =>
+    activeCollectionId &&
+    history.push(newDocumentPath(activeCollectionId), {
+      starred: inStarredSection,
+    }),
 });
 
 export const starDocument = createAction({
@@ -150,10 +154,11 @@ export const duplicateDocument = createAction({
  * Pin a document to a collection. Pinned documents will be displayed at the top
  * of the collection for all collection members to see.
  */
-export const pinDocument = createAction({
+export const pinDocumentToCollection = createAction({
   name: ({ t }) => t("Pin to collection"),
   section: DocumentSection,
   icon: <PinIcon />,
+  iconInContextMenu: false,
   visible: ({ activeCollectionId, activeDocumentId, stores }) => {
     if (!activeDocumentId || !activeCollectionId) {
       return false;
@@ -188,6 +193,7 @@ export const pinDocumentToHome = createAction({
   name: ({ t }) => t("Pin to home"),
   section: DocumentSection,
   icon: <PinIcon />,
+  iconInContextMenu: false,
   visible: ({ activeDocumentId, currentTeamId, stores }) => {
     if (!currentTeamId || !activeDocumentId) {
       return false;
@@ -212,6 +218,13 @@ export const pinDocumentToHome = createAction({
       stores.toasts.showToast(t("Pinned to team home"));
     }
   },
+});
+
+export const pinDocument = createAction({
+  name: ({ t }) => t("Pin"),
+  section: DocumentSection,
+  icon: <PinIcon />,
+  children: [pinDocumentToCollection, pinDocumentToHome],
 });
 
 export const printDocument = createAction({
@@ -309,6 +322,17 @@ export const createTemplate = createAction({
   },
 });
 
+export const searchDocumentsForQuery = (searchQuery: string) =>
+  createAction({
+    id: "search",
+    section: DocumentSection,
+    name: ({ t }) =>
+      t(`Search documents for "{{searchQuery}}"`, { searchQuery }),
+    icon: <SearchIcon />,
+    perform: () => history.push(searchPath(searchQuery)),
+    visible: ({ location }) => location.pathname !== searchPath(),
+  });
+
 export const rootDocumentActions = [
   openDocument,
   createDocument,
@@ -319,6 +343,6 @@ export const rootDocumentActions = [
   unstarDocument,
   duplicateDocument,
   printDocument,
-  pinDocument,
+  pinDocumentToCollection,
   pinDocumentToHome,
 ];
