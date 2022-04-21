@@ -44,6 +44,7 @@ export default async function documentUpdater({
       collaboratorIds,
     },
     {
+      silent: true,
       hooks: false,
       where: {
         id: documentId,
@@ -55,7 +56,7 @@ export default async function documentUpdater({
     return;
   }
 
-  await Event.add({
+  await Event.schedule({
     name: "documents.update",
     documentId: document.id,
     collectionId: document.collectionId,
