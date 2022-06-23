@@ -1,16 +1,18 @@
+import fs from "fs-extra";
 import invariant from "invariant";
 import Router from "koa-router";
 import { Op, ScopeOptions, WhereOptions } from "sequelize";
 import { subtractDate } from "@shared/utils/date";
 import documentCreator from "@server/commands/documentCreator";
 import documentImporter from "@server/commands/documentImporter";
+import documentLoader from "@server/commands/documentLoader";
 import documentMover from "@server/commands/documentMover";
 import documentPermanentDeleter from "@server/commands/documentPermanentDeleter";
+import documentUpdater from "@server/commands/documentUpdater";
 import { sequelize } from "@server/database/sequelize";
 import {
   NotFoundError,
   InvalidRequestError,
-  AuthorizationError,
   AuthenticationError,
 } from "@server/errors";
 import auth from "@server/middlewares/authentication";
@@ -21,13 +23,12 @@ import {
   Event,
   Revision,
   SearchQuery,
-  Share,
   Star,
   User,
   View,
   Team,
 } from "@server/models";
-import { authorize, cannot, can } from "@server/policies";
+import { authorize, cannot } from "@server/policies";
 import {
   presentCollection,
   presentDocument,
@@ -173,7 +174,7 @@ router.post("documents.archived", auth(), pagination(), async (ctx) => {
   const { user } = ctx.state;
   const collectionIds = await user.collectionIds();
   const collectionScope: Readonly<ScopeOptions> = {
-    method: ["withCollection", user.id],
+    method: ["withCollectionPermissions", user.id],
   };
   const viewScope: Readonly<ScopeOptions> = {
     method: ["withViews", user.id],
@@ -219,7 +220,7 @@ router.post("documents.deleted", auth(), pagination(), async (ctx) => {
     paranoid: false,
   });
   const collectionScope: Readonly<ScopeOptions> = {
-    method: ["withCollection", user.id],
+    method: ["withCollectionPermissions", user.id],
   };
   const viewScope: Readonly<ScopeOptions> = {
     method: ["withViews", user.id],
@@ -357,7 +358,7 @@ router.post("documents.drafts", auth(), pagination(), async (ctx) => {
   }
 
   const collectionScope: Readonly<ScopeOptions> = {
-    method: ["withCollection", user.id],
+    method: ["withCollectionPermissions", user.id],
   };
   const documents = await Document.scope([
     "defaultScope",
@@ -380,169 +381,6 @@ router.post("documents.drafts", auth(), pagination(), async (ctx) => {
   };
 });
 
-async function loadDocument({
-  id,
-  shareId,
-  user,
-}: {
-  id?: string;
-  shareId?: string;
-  user?: User;
-}): Promise<{
-  document: Document;
-  share?: Share;
-  collection: Collection;
-}> {
-  let document;
-  let collection;
-  let share;
-
-  if (!shareId && !(id && user)) {
-    throw AuthenticationError(`Authentication or shareId required`);
-  }
-
-  if (shareId) {
-    share = await Share.findOne({
-      where: {
-        revokedAt: {
-          [Op.is]: null,
-        },
-        id: shareId,
-      },
-      include: [
-        {
-          // unscoping here allows us to return unpublished documents
-          model: Document.unscoped(),
-          include: [
-            {
-              model: User,
-              as: "createdBy",
-              paranoid: false,
-            },
-            {
-              model: User,
-              as: "updatedBy",
-              paranoid: false,
-            },
-          ],
-          required: true,
-          as: "document",
-        },
-      ],
-    });
-
-    if (!share || share.document.archivedAt) {
-      throw InvalidRequestError("Document could not be found for shareId");
-    }
-
-    // It is possible to pass both an id and a shareId to the documents.info
-    // endpoint. In this case we'll load the document based on the `id` and check
-    // if the provided share token allows access. This is used by the frontend
-    // to navigate nested documents from a single share link.
-    if (id) {
-      document = await Document.findByPk(id, {
-        userId: user ? user.id : undefined,
-        paranoid: false,
-      }); // otherwise, if the user has an authenticated session make sure to load
-      // with their details so that we can return the correct policies, they may
-      // be able to edit the shared document
-    } else if (user) {
-      document = await Document.findByPk(share.documentId, {
-        userId: user.id,
-        paranoid: false,
-      });
-    } else {
-      document = share.document;
-    }
-
-    invariant(document, "document not found");
-
-    // If the user has access to read the document, we can just update
-    // the last access date and return the document without additional checks.
-    const canReadDocument = user && can(user, "read", document);
-
-    if (canReadDocument) {
-      await share.update({
-        lastAccessedAt: new Date(),
-      });
-      return {
-        document,
-        share,
-        collection: document.collection,
-      };
-    }
-
-    // "published" === on the public internet.
-    // We already know that there's either no logged in user or the user doesn't
-    // have permission to read the document, so we can throw an error.
-    if (!share.published) {
-      throw AuthorizationError();
-    }
-
-    // It is possible to disable sharing at the collection so we must check
-    collection = await Collection.findByPk(document.collectionId);
-    invariant(collection, "collection not found");
-
-    if (!collection.sharing) {
-      throw AuthorizationError();
-    }
-
-    // If we're attempting to load a document that isn't the document originally
-    // shared then includeChildDocuments must be enabled and the document must
-    // still be active and nested within the shared document
-    if (share.document.id !== document.id) {
-      if (!share.includeChildDocuments) {
-        throw AuthorizationError();
-      }
-
-      const childDocumentIds = await share.document.getChildDocumentIds({
-        archivedAt: {
-          [Op.is]: null,
-        },
-      });
-      if (!childDocumentIds.includes(document.id)) {
-        throw AuthorizationError();
-      }
-    }
-
-    // It is possible to disable sharing at the team level so we must check
-    const team = await Team.findByPk(document.teamId);
-    invariant(team, "team not found");
-
-    if (!team.sharing) {
-      throw AuthorizationError();
-    }
-
-    await share.update({
-      lastAccessedAt: new Date(),
-    });
-  } else {
-    document = await Document.findByPk(id as string, {
-      userId: user ? user.id : undefined,
-      paranoid: false,
-    });
-
-    if (!document) {
-      throw NotFoundError();
-    }
-
-    if (document.deletedAt) {
-      // don't send data if user cannot restore deleted doc
-      user && authorize(user, "restore", document);
-    } else {
-      user && authorize(user, "read", document);
-    }
-
-    collection = document.collection;
-  }
-
-  return {
-    document,
-    share,
-    collection,
-  };
-}
-
 router.post(
   "documents.info",
   auth({
@@ -552,7 +390,7 @@ router.post(
     const { id, shareId, apiVersion } = ctx.body;
     assertPresent(id || shareId, "id or shareId is required");
     const { user } = ctx.state;
-    const { document, share, collection } = await loadDocument({
+    const { document, share, collection } = await documentLoader({
       id,
       shareId,
       user,
@@ -590,7 +428,7 @@ router.post(
     const { id, shareId } = ctx.body;
     assertPresent(id || shareId, "id or shareId is required");
     const { user } = ctx.state;
-    const { document } = await loadDocument({
+    const { document } = await documentLoader({
       id,
       shareId,
       user,
@@ -708,7 +546,7 @@ router.post("documents.search_titles", auth(), pagination(), async (ctx) => {
       method: ["withViews", user.id],
     },
     {
-      method: ["withCollection", user.id],
+      method: ["withCollectionPermissions", user.id],
     },
   ]).findAll({
     where: {
@@ -778,7 +616,7 @@ router.post(
     let response;
 
     if (shareId) {
-      const { share, document } = await loadDocument({
+      const { share, document } = await documentLoader({
         shareId,
         user,
       });
@@ -999,8 +837,6 @@ router.post("documents.update", auth(), async (ctx) => {
     text,
     fullWidth,
     publish,
-    autosave,
-    done,
     lastRevision,
     templateId,
     append,
@@ -1012,91 +848,38 @@ router.post("documents.update", auth(), async (ctx) => {
   }
   const { user } = ctx.state;
 
-  const document = await Document.findByPk(id, {
-    userId: user.id,
-  });
-  authorize(user, "update", document);
+  let collection: Collection | null | undefined;
 
-  if (lastRevision && lastRevision !== document.revisionCount) {
-    throw InvalidRequestError("Document has changed since last revision");
-  }
+  const document = await sequelize.transaction(async (transaction) => {
+    const document = await Document.findByPk(id, {
+      userId: user.id,
+      includeState: true,
+      transaction,
+    });
+    authorize(user, "update", document);
 
-  const previousTitle = document.title;
+    collection = document.collection;
 
-  // Update document
-  if (title !== undefined) {
-    document.title = title;
-  }
-  if (editorVersion) {
-    document.editorVersion = editorVersion;
-  }
-  if (templateId) {
-    document.templateId = templateId;
-  }
-  if (fullWidth !== undefined) {
-    document.fullWidth = fullWidth;
-  }
-
-  if (!user.team?.collaborativeEditing) {
-    if (append) {
-      document.text += text;
-    } else if (text !== undefined) {
-      document.text = text;
+    if (lastRevision && lastRevision !== document.revisionCount) {
+      throw InvalidRequestError("Document has changed since last revision");
     }
-  }
 
-  document.lastModifiedById = user.id;
-  const { collection } = document;
-  const changed = document.changed();
-
-  if (publish) {
-    await document.publish(user.id);
-  } else {
-    await document.save();
-  }
-
-  if (publish) {
-    await Event.create({
-      name: "documents.publish",
-      documentId: document.id,
-      collectionId: document.collectionId,
-      teamId: document.teamId,
-      actorId: user.id,
-      data: {
-        title: document.title,
-      },
+    return documentUpdater({
+      document,
+      user,
+      title,
+      text,
+      fullWidth,
+      publish,
+      append,
+      templateId,
+      editorVersion,
+      transaction,
       ip: ctx.request.ip,
     });
-  } else if (changed) {
-    await Event.create({
-      name: "documents.update",
-      documentId: document.id,
-      collectionId: document.collectionId,
-      teamId: document.teamId,
-      actorId: user.id,
-      data: {
-        autosave,
-        done,
-        title: document.title,
-      },
-      ip: ctx.request.ip,
-    });
-  }
+  });
 
-  if (document.title !== previousTitle) {
-    Event.schedule({
-      name: "documents.title_change",
-      documentId: document.id,
-      collectionId: document.collectionId,
-      teamId: document.teamId,
-      actorId: user.id,
-      data: {
-        previousTitle,
-        title: document.title,
-      },
-      ip: ctx.request.ip,
-    });
-  }
+  invariant(collection, "collection not found");
 
   document.updatedBy = user;
   document.collection = collection;
@@ -1273,6 +1056,11 @@ router.post("documents.unpublish", auth(), async (ctx) => {
   });
   authorize(user, "unpublish", document);
 
+  const childDocumentIds = await document.getChildDocumentIds();
+  if (childDocumentIds.length > 0) {
+    throw InvalidRequestError("Cannot unpublish document with child documents");
+  }
+
   await document.unpublish(user.id);
   await Event.create({
     name: "documents.unpublish",
@@ -1342,22 +1130,31 @@ router.post("documents.import", auth(), async (ctx) => {
     });
   }
 
-  const { text, title } = await documentImporter({
-    user,
-    file,
-    ip: ctx.request.ip,
+  const content = await fs.readFile(file.path);
+  const document = await sequelize.transaction(async (transaction) => {
+    const { text, title } = await documentImporter({
+      user,
+      fileName: file.name,
+      mimeType: file.type,
+      content,
+      ip: ctx.request.ip,
+      transaction,
+    });
+
+    return documentCreator({
+      source: "import",
+      title,
+      text,
+      publish,
+      collectionId,
+      parentDocumentId,
+      index,
+      user,
+      ip: ctx.request.ip,
+      transaction,
+    });
   });
-  const document = await documentCreator({
-    source: "import",
-    title,
-    text,
-    publish,
-    collectionId,
-    parentDocumentId,
-    index,
-    user,
-    ip: ctx.request.ip,
-  });
+
   document.collection = collection;
 
   return (ctx.body = {
@@ -1414,7 +1211,7 @@ router.post("documents.create", auth(), async (ctx) => {
     });
   }
 
-  let templateDocument;
+  let templateDocument: Document | null | undefined;
 
   if (templateId) {
     templateDocument = await Document.findByPk(templateId, {
@@ -1423,19 +1220,23 @@ router.post("documents.create", auth(), async (ctx) => {
     authorize(user, "read", templateDocument);
   }
 
-  const document = await documentCreator({
-    title,
-    text,
-    publish,
-    collectionId,
-    parentDocumentId,
-    templateDocument,
-    template,
-    index,
-    user,
-    editorVersion,
-    ip: ctx.request.ip,
+  const document = await sequelize.transaction(async (transaction) => {
+    return documentCreator({
+      title,
+      text,
+      publish,
+      collectionId,
+      parentDocumentId,
+      templateDocument,
+      template,
+      index,
+      user,
+      editorVersion,
+      ip: ctx.request.ip,
+      transaction,
+    });
   });
+
   document.collection = collection;
 
   return (ctx.body = {

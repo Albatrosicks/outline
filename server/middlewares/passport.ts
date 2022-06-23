@@ -1,6 +1,7 @@
 import passport from "@outlinewiki/koa-passport";
 import { Context } from "koa";
-import Logger from "@server/logging/logger";
+import env from "@server/env";
+import Logger from "@server/logging/Logger";
 import { signIn } from "@server/utils/authentication";
 import { AccountProvisionerResult } from "../commands/accountProvisioner";
 
@@ -17,10 +18,16 @@ export default function createMiddleware(providerName: string) {
 
           if (err.id) {
             const notice = err.id.replace(/_/g, "-");
-            return ctx.redirect(`${err.redirectUrl || "/"}?notice=${notice}`);
+            const hasQueryString = err.redirectUrl?.includes("?");
+
+            return ctx.redirect(
+              `${err.redirectUrl || "/"}${
+                hasQueryString ? "&" : "?"
+              }notice=${notice}`
+            );
           }
 
-          if (process.env.NODE_ENV === "development") {
+          if (env.ENVIRONMENT === "development") {
             throw err;
           }
 

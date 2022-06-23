@@ -161,6 +161,7 @@ class Collection extends ParanoidModel {
   @Column
   sharing: boolean;
 
+  @Default({ field: "title", direction: "asc" })
   @Column({
     type: DataType.JSONB,
     validate: {
@@ -184,7 +185,7 @@ class Collection extends ParanoidModel {
       },
     },
   })
-  sort: Sort | null;
+  sort: Sort;
 
   // getters
 
@@ -311,9 +312,12 @@ class Collection extends ParanoidModel {
    * @param id uuid or urlId
    * @returns collection instance
    */
-  static async findByPk(id: Identifier, options: FindOptions<Collection> = {}) {
+  static async findByPk(
+    id: Identifier,
+    options: FindOptions<Collection> = {}
+  ): Promise<Collection | null> {
     if (typeof id !== "string") {
-      return undefined;
+      return null;
     }
 
     if (isUUID(id)) {
@@ -335,7 +339,7 @@ class Collection extends ParanoidModel {
       });
     }
 
-    return undefined;
+    return null;
   }
 
   /**
@@ -362,10 +366,6 @@ class Collection extends ParanoidModel {
     if (!this.documentStructure) {
       return null;
     }
-    const sort: Sort = this.sort || {
-      field: "title",
-      direction: "asc",
-    };
 
     let result!: NavigationNode | undefined;
 
@@ -399,7 +399,7 @@ class Collection extends ParanoidModel {
 
     return {
       ...result,
-      children: sortNavigationNodes(result.children, sort),
+      children: sortNavigationNodes(result.children, this.sort),
     };
   };
 
@@ -520,7 +520,7 @@ class Collection extends ParanoidModel {
    */
   updateDocument = async function (
     updatedDocument: Document,
-    options?: { transaction: Transaction }
+    options?: { transaction?: Transaction | null }
   ) {
     if (!this.documentStructure) {
       return;
